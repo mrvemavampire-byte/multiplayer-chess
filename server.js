@@ -7,21 +7,15 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// Change to serve from the root directory instead of 'public'
 app.use(express.static(__dirname));
 
 let games = {};
 
 io.on('connection', (socket) => {
-    console.log('A user connected:', socket.id);
-
     socket.on('joinGame', (gameId) => {
         socket.join(gameId);
         if (!games[gameId]) {
-            games[gameId] = {
-                players: [],
-                board: null
-            };
+            games[gameId] = { players: [] };
         }
         
         if (games[gameId].players.length < 2) {
@@ -42,7 +36,9 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
-        console.log('User disconnected:', socket.id);
+        for (let gameId in games) {
+            games[gameId].players = games[gameId].players.filter(id => id !== socket.id);
+        }
     });
 });
 
