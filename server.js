@@ -7,7 +7,8 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-app.use(express.static(path.join(__dirname, 'public')));
+// Change to serve from the root directory instead of 'public'
+app.use(express.static(__dirname));
 
 let games = {};
 
@@ -42,7 +43,6 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);
-        // Cleanup game logic could go here
     });
 });
 
