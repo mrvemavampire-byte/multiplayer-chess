@@ -2,7 +2,7 @@ const socket = io();
 const game = new Chess();
 let board = null;
 let playerColor = 'w';
-let gameMode = 'single'; // 'single' or 'multi'
+let gameMode = 'single';
 
 const $status = $('#status');
 const $color = $('#playerColor');
@@ -74,7 +74,8 @@ var config = {
     position: 'start',
     onDragStart: onDragStart,
     onDrop: onDrop,
-    onSnapEnd: onSnapEnd
+    onSnapEnd: onSnapEnd,
+    pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png'
 };
 board = Chessboard('myBoard', config);
 
