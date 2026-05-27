@@ -1,50 +1,13 @@
 const socket = io();
-const board = document.getElementById('myBoard');
 const game = new Chess();
 let board = null;
-let playerColor = null;
+let playerColor = 'w';
+let gameMode = 'single'; // 'single' or 'multi'
 
 const $status = $('#status');
 const $color = $('#playerColor');
 
-function onDragStart (source, piece, position, orientation) {
-    if (game.game_over()) return false;
-
-    // Only pick up pieces for the side to move
-    if ((game.turn() === 'w' && piece.search(/^b/) !== -1) ||
-        (game.turn() === 'b' && piece.search(/^w/) !== -1)) {
-        return false;
-    }
-
-    // Only allow move if it's your turn
-    if (playerColor && game.turn() !== playerColor) {
-        return false;
-    }
-}
-
-function onDrop (source, target) {
-    const move = game.move({
-        from: source,
-        to: target,
-        promotion: 'q' 
-    });
-
-    if (move === null) return 'snapback';
-
-    // Emit move to server
-    socket.emit('move', {
-        gameId: $('#gameIdInput').val(),
-        move: move
-    });
-
-    updateStatus();
-}
-
-function onSnapEnd () {
-    board.position(game.fen());
-}
-
-function updateStatus () {
+function updateStatus() {
     let status = '';
     let moveColor = (game.turn() === 'b') ? 'Black' : 'White';
 
@@ -54,11 +17,56 @@ function updateStatus () {
         status = 'Game over, drawn position';
     } else {
         status = moveColor + ' to move';
-        if (game.in_check()) {
-            status += ', ' + moveColor + ' is in check';
-        }
+        if (game.in_check()) status += ', ' + moveColor + ' is in check';
     }
     $status.html(status);
+}
+
+function makeRandomMove() {
+    setTimeout(() => {
+        const possibleMoves = game.moves();
+        if (possibleMoves.length === 0) return;
+        const randomIndex = Math.floor(Math.random() * possibleMoves.length);
+        game.move(possibleMoves[randomIndex]);
+        board.position(game.fen());
+        updateStatus();
+    }, 500);
+}
+
+function onDragStart (source, piece, position, orientation) {
+    if (game.game_over()) return false;
+    if ((game.turn() === 'w' && piece.search(/^b/) !== -1) ||
+        (game.turn() === 'b' && piece.search(/^w/) !== -1)) {
+        return false;
+    }
+    if (gameMode === 'multi' && playerColor && game.turn() !== playerColor) {
+        return false;
+    }
+}
+
+function onDrop (source, target) {
+    const move = game.move({
+        from: source,
+        to: target,
+        promotion: 'q'
+    });
+
+    if (move === null) return 'snapback';
+
+    updateStatus();
+
+    if (gameMode === 'multi') {
+        socket.emit('move', {
+            gameId: $('#gameIdInput').val(),
+            move: move
+        });
+    } else if (gameMode === 'single' && game.turn() === 'b') {
+        makeRandomMove();
+    }
+}
+
+function onSnapEnd () {
+    board.position(game.fen());
 }
 
 var config = {
@@ -70,19 +78,35 @@ var config = {
 };
 board = Chessboard('myBoard', config);
 
-$('#joinBtn').on('click', () => {
+window.startSinglePlayer = function() {
+    gameMode = 'single';
+    $('#mainMenu').hide();
+    $('#myBoard').show();
+    $('#gameInfo').show();
+    $color.text('White');
+    updateStatus();
+};
+
+window.showMultiplayer = function() {
+    $('#multiplayerInputs').css('display', 'flex');
+};
+
+window.joinMultiplayer = function() {
     const gameId = $('#gameIdInput').val();
+    if (!gameId) return alert('Please enter a Game ID');
+    
+    gameMode = 'multi';
     socket.emit('joinGame', gameId);
-});
+    
+    $('#mainMenu').hide();
+    $('#myBoard').show();
+    $('#gameInfo').show();
+};
 
 socket.on('playerAssignment', ({ color }) => {
     playerColor = color;
     $color.text(color === 'w' ? 'White' : 'Black');
-    
-    // Flip board for black player
-    if (color === 'b') {
-        board.flip();
-    }
+    if (color === 'b') board.flip();
 });
 
 socket.on('gameStart', () => {
@@ -97,4 +121,5 @@ socket.on('move', (move) => {
 
 socket.on('fullGame', (msg) => {
     alert(msg);
+    location.reload();
 });
